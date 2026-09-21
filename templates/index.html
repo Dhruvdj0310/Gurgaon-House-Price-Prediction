@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gurgaon House Price — Predictor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="bg-pattern" aria-hidden="true"></div>
+    <div class="wrap">
+      <header>
+        <h1>House price prediction</h1>
+        <p>
+          Enter the same features as in <code style="color: #3d9a82">housing.csv</code>. The app uses
+          your Random Forest model from <code style="color: #3d9a82">main.py</code>.
+        </p>
+      </header>
+
+      <div class="card">
+        <form id="predict-form">
+          <div class="form-grid">
+            <div class="field">
+              <label for="longitude">Longitude</label>
+              <input id="longitude" name="longitude" type="number" step="any" required value="-122.23" />
+            </div>
+            <div class="field">
+              <label for="latitude">Latitude</label>
+              <input id="latitude" name="latitude" type="number" step="any" required value="37.88" />
+            </div>
+            <div class="field">
+              <label for="housing_median_age">Housing median age</label>
+              <input id="housing_median_age" name="housing_median_age" type="number" step="any" required value="41" />
+            </div>
+            <div class="field">
+              <label for="total_rooms">Total rooms</label>
+              <input id="total_rooms" name="total_rooms" type="number" step="any" required value="880" />
+            </div>
+            <div class="field">
+              <label for="total_bedrooms">Total bedrooms</label>
+              <input id="total_bedrooms" name="total_bedrooms" type="number" step="any" required value="129" />
+            </div>
+            <div class="field">
+              <label for="population">Population</label>
+              <input id="population" name="population" type="number" step="any" required value="322" />
+            </div>
+            <div class="field">
+              <label for="households">Households</label>
+              <input id="households" name="households" type="number" step="any" required value="126" />
+            </div>
+            <div class="field">
+              <label for="median_income">Median income</label>
+              <input id="median_income" name="median_income" type="number" step="any" required value="8.3252" />
+            </div>
+            <div class="field full">
+              <label for="ocean_proximity">Ocean proximity</label>
+              <select id="ocean_proximity" name="ocean_proximity" required>
+                {% for opt in ocean_options %}
+                <option value="{{ opt }}" {% if opt == 'NEAR BAY' %}selected{% endif %}>{{ opt }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="actions">
+            <button type="submit" id="submit-btn">Predict median house value</button>
+          </div>
+        </form>
+
+        <div id="result" class="result" role="status" aria-live="polite"></div>
+        <p class="hint">
+          First launch trains the model if <code>model.pkl</code> is missing (same as running
+          <code>main.py</code> once).
+        </p>
+      </div>
+    </div>
+
+    <script>
+      const form = document.getElementById("predict-form");
+      const resultEl = document.getElementById("result");
+      const submitBtn = document.getElementById("submit-btn");
+
+      const fields = [
+        "longitude",
+        "latitude",
+        "housing_median_age",
+        "total_rooms",
+        "total_bedrooms",
+        "population",
+        "households",
+        "median_income",
+        "ocean_proximity",
+      ];
+
+      function showResult(html, isError) {
+        resultEl.innerHTML = html;
+        resultEl.classList.add("visible");
+        resultEl.classList.toggle("error", !!isError);
+      }
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        resultEl.classList.remove("visible", "error");
+        submitBtn.disabled = true;
+
+        const body = {};
+        for (const name of fields) {
+          const el = document.getElementById(name);
+          body[name] = el.type === "number" ? el.value : el.value;
+        }
+
+        try {
+          const res = await fetch("/predict", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const data = await res.json();
+          if (data.ok) {
+            const v = data.median_house_value;
+            const formatted = new Intl.NumberFormat(undefined, {
+              style: "currency",
+              currency: "USD",
+              maximumFractionDigits: 0,
+            }).format(v);
+            showResult("<div>Predicted median house value</div><strong>" + formatted + "</strong>", false);
+          } else {
+            showResult("<strong>Error</strong><div>" + (data.error || "Request failed") + "</div>", true);
+          }
+        } catch (err) {
+          showResult("<strong>Network error</strong><div>Is the server running?</div>", true);
+        } finally {
+          submitBtn.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>
